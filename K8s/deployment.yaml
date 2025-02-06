@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
     name: project-pod
-    namespace: 
+    namespace: project
       labels:
         app: project
     spec:
