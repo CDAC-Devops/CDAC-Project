@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-deployment
+  namespace: project
+  labels:
+    app: project
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: project
+  template:
+    metadata:
+    name: project-pod
+    namespace: project
+      labels:
+        app: project
+    spec:
+      containers:
+      - name: Project-container
+        image: latesh2002/project
+        ports:
+        - containerPort: 8000

@@ -13,7 +13,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/Machhindra-9/cdac-pro.git'
+                    url: 'https://github.com/CDAC-Devops/CDAC-Project.git'
             }
         }
         stage('SonarQube Analysis') {
