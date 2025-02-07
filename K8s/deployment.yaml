@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: project-deployment
-  namespace: project
+
   labels:
     app: project
 spec:
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       name: project-pod
-      namespace: project
+     
       labels:
         app: project
     spec:
