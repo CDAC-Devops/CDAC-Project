@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: project-deployment
-
+  namespace: default
   labels:
     app: project
 spec:
@@ -12,20 +12,18 @@ spec:
       app: project
   template:
     metadata:
-      name: project-pod
-     
       labels:
         app: project
     spec:
       containers:
-      - name: project-container
-        image: latesh2002/project
-        ports:
-        - containerPort: 8000
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 200m
-          memory: 256Mi
+        - name: project-container
+          image: latesh2002/project
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
