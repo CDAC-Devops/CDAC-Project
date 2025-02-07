@@ -12,13 +12,13 @@ spec:
       app: project
   template:
     metadata:
-    name: project-pod
-    namespace: project
+      name: project-pod
+      namespace: project
       labels:
         app: project
     spec:
       containers:
-      - name: Project-container
+      - name: project-container
         image: latesh2002/project
         ports:
         - containerPort: 8000
