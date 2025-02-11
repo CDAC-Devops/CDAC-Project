@@ -1,90 +1,97 @@
 pipeline {
     agent any
-    environment {
-        REPORT_DIR = "dependency-check-report"
-        SONAR_HOST_URL = 'http://192.168.80.153:9000'
-    }
+    
+   environment{
+         SONAR_HOME= tool "sonar-scanner"
+     }
     stages {
-        stage('hello') {
+        stage('Code Pull') {
             steps {
-                echo 'hello'
+                git url: "https://github.com/CDAC-Devops/CDAC-Project.git", branch: "main"
             }
         }
-        stage('Checkout') {
+         stage('SonarQube Quality Analysis') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/CDAC-Devops/CDAC-Project.git'
+                  withSonarQubeEnv('sonar') {
+                   sh '''
+                    $SONAR_HOME/bin/sonar-scanner \
+                    -Dsonar.projectName=Devops-Pro \
+                    -Dsonar.projectKey=Devops-Pro \
+                    -Dsonar.host.url=http://192.168.80.253:9000 \
+                     -Dsonar.login=squ_95da7900c646424e4a6be8c93cff9b19a090f54b
+                '''
+
+                }
+
             }
         }
-        stage('SonarQube Analysis') {
+         stage('OWASP Dependency check') {
             steps {
-                script {
-                    // Retrieve the SonarQube Scanner tool (ensure the tool name matches your Global Tool Configuration)
-                    def scannerHome = tool 'sonar'
-                    
-                    // Use the SonarQube environment that you configured in Jenkins
-                    withSonarQubeEnv('sonar') {
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=devops-project-key \
-                            -Dsonar.projectName="devops-project" \
-                            -Dsonar.projectVersion=1.0 \
-                            -Dsonar.sources=. \
-                            -Dsonar.language=py \
-                            -Dsonar.python.version=3 \
-                            -Dsonar.host.url=${env.SONAR_HOST_URL}
-                        """
+                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DC'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        } 
+            stage(" Sonarqube Quality Gateway Checks"){
+            steps{
+                timeout(time: 2, unit: "MINUTES"){                   
+                    waitForQualityGate abortPipeline: false
+                }
+               }
+        }
+        
+        
+
+         stage('Trivy File System Scan') {
+            steps {
+                 sh 'trivy fs --format table .'
+            }
+        }
+         stage ('docker login') {
+            steps {
+               script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-login', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                     }
-                }
+              }
+            }
+             
+        }
+        
+           stage('Building Image And Pushing') {
+            steps {
+                 sh '/usr/bin/docker image build -t latesh2002/project .'
+                 sh '/usr/bin/docker image push latesh2002/project'
             }
         }
-        stage('Build Docker Image') {
+        
+         
+          stage('Run Trivy Image Scan') {
             steps {
-                sh 'docker build -t first .'
-                // Remove existing container if present
-                script {
-                    sh '''
-                    CONTAINER_NAME=receipe
-                    if [ $(docker ps -aq -f name=$CONTAINER_NAME) ]; then
-                        docker stop $CONTAINER_NAME
-                        docker rm $CONTAINER_NAME
-                    fi
-                    '''
-                }
-                // Remove dangling images
-                sh 'docker images --filter "dangling=true" -q | xargs -r docker rmi'
+                sh 'trivy image --severity CRITICAL,HIGH latesh2002/project:latest'
             }
+            
         }
-        stage('Trivy Scan of Image') {
+       
+           
+          stage('Deploying application') {
             steps {
-                // Scan the Docker image and output the result in JSON format
-                sh 'trivy image --format json --output trivy-report.json first'
+                        sh 'kubectl apply -f ./K8s/deployment.yaml'
+                        sh 'kubectl apply -f ./K8s/service.yml'
+                        sh 'kubectl apply -f ./K8s/hpa.yml'
+
             }
+            
         }
-        stage('Archive Trivy Report') {
+
+          stage('checking service and pods') {
             steps {
-                // Archive the generated Trivy report so it can be viewed from the Jenkins build page
-                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+                sh 'kubectl get pods'
+                    sh 'kubectl get svc'
+                      sh 'kubectl get hpa'
+                
+                
             }
-        }
-        stage('Remove Existing Container') {
-            steps {
-                script {
-                    sh '''
-                    CONTAINER_NAME=receipe
-                    if [ $(docker ps -aq -f name=$CONTAINER_NAME) ]; then
-                        docker stop $CONTAINER_NAME
-                        docker rm $CONTAINER_NAME
-                    fi
-                    '''
-                }
-            }
-        }
-        stage('Deploy Container') {
-            steps {
-                sh 'docker container run --name receipe -d -p 8000:8000 first'
-                echo 'Container deployed'
-            }
+            
+        } 
         }
     }
-}
